@@ -7,8 +7,11 @@ import hydra
 import matplotlib.pyplot as plt
 
 # Add the project root to the Python path
-sys.path.append(str(Path(__file__).parent.parent.parent))
+#sys.path.append(str(Path(__file__).parent.parent.parent))
+# Setup root directory
+root = rootutils.setup_root(__file__, indicator=".project-root", pythonpath=True)
 
+from  src.data_modules.dogs_datamodule import DogsBreedDataModule
 from src.infer import inference, save_prediction, denormalize, main
 
 # Mock the rootutils setup

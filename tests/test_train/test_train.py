@@ -5,8 +5,12 @@ from omegaconf import OmegaConf
 import hydra
 
 # Add the project root to the Python path
-sys.path.append(str(Path(__file__).parent.parent.parent))
+#sys.path.append(str(Path(__file__).parent.parent.parent))
+# Setup root directory
+root = rootutils.setup_root(__file__, indicator=".project-root", pythonpath=True)
 
+
+from  src.data_modules.dogs_datamodule import DogsBreedDataModule
 from src.train import train
 
 @pytest.fixture
@@ -15,7 +19,7 @@ def config():
         cfg = hydra.compose(config_name="train")
     return cfg
 
-def test_catdog_ex_training(config, tmp_path):
+def test_dogs_breed_training(config, tmp_path):
     try:
         # Override settings for testing
         config.trainer.max_epochs = 1
@@ -50,6 +54,45 @@ def test_catdog_ex_training(config, tmp_path):
 
         # Verify log directory exists
         assert Path(config.paths.log_dir).exists()
+
+
+
+        # =========================================================
+        # Check if checkpoints directory exists
+        checkpoints_dir = tmp_path / "checkpoints"
+        config.trainer.default_root_dir = str(checkpoints_dir)
+
+        # Ensure the checkpoints directory exists
+        checkpoints_dir.mkdir(parents=True, exist_ok=True)
+
+        # Instantiate components
+        datamodule = hydra.utils.instantiate(config.data)
+        model = hydra.utils.instantiate(config.model)
+        trainer = hydra.utils.instantiate(config.trainer)
+
+        # Run training
+        train(config, trainer, model, datamodule)
+        
+        # Print directory contents for debugging
+        print(f"Contents of {tmp_path}:")
+        for item in os.listdir(tmp_path):
+            print(f"- {item}")
+
+        
+        assert checkpoints_dir.exists(), f"Checkpoints directory should be created at {checkpoints_dir}"
+        
+        # If checkpoints directory exists, check its contents
+        if checkpoints_dir.exists():
+            print(f"Contents of {checkpoints_dir}:")
+            for item in os.listdir(checkpoints_dir):
+                print(f"- {item}")
+        
+        # Add some assertions to verify the training occurred
+        assert any(checkpoints_dir.iterdir()), f"At least one checkpoint should be saved in {checkpoints_dir}"
+
+        # Clean up temporary directory after test
+        shutil.rmtree(tmp_path) 
+        # ===========================================================
 
     except Exception as e:
         pytest.fail(f"An unexpected error occurred: {str(e)}\nConfig: {OmegaConf.to_yaml(config)}")

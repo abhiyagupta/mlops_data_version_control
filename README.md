@@ -1,151 +1,42 @@
-# CatDog Classification with PyTorch Lightning, Hydra, and DVC
+**Dog Breed Classification: 
+**
+This project aims to classify dog breeds using a convolutional neural network (CNN) trained on image data. The project is built using PyTorch Lightning, and Hydra is used for configuration management. The repo also includes test evaluation using a checkpointed model and inference capabilities. Additionally, code coverage (using Codecov) and Docker containerization are integrated.
 
-This project implements a deep learning model to classify images of cats and dogs using PyTorch Lightning, Hydra for configuration management, and DVC for data version control.
+Key Features
 
-## Table of Contents
-- [Project Overview](#project-overview)
-- [Setup](#setup)
-  - [Prerequisites](#prerequisites)
-  - [Installation](#installation)
-- [Usage](#usage)
-- [Project Structure](#project-structure)
-  - [Hydra Configuration Structure](#hydra-configuration-structure)
-- [Configuration](#configuration)
-- [Data Version Control](#data-version-control)
+- **PyTorch Lightning Framework**: Utilizes PyTorch Lightning for efficient model training and management.
+- **Hydra**: dynamic configuration usuing Hydra.
+- **Docker Containerization**: Includes Docker setup for easy deployment and reproducibility across different environments.
+- **Code Cover & Pytest**: Ensure robust code quality by integrating pytest and Codecov for automated testing and achieving 70% or higher test coverage.
+- **GHRC integration**: deploy and manage Docker image with GitHub Container Registry (GHCR) for seamless integration and versioning. 
 
-<!--
-- [Training Results](#training-results)
-- [Contributing](#contributing)
-- [License](#license)
--->
+Dataset split into train, test, validation for inference:
+![image](https://github.com/user-attachments/assets/411ead5e-96f0-40a9-9253-e3acd6a6ad99)
 
-## Project Overview
 
-The CatDog Classification project aims to:
-- Implement a Vision Transformer (ViT) model for image classification
-- Utilize PyTorch Lightning for efficient and organized model training
-- Use Hydra for flexible configuration management
-- Employ DVC for data and model versioning
+Training:
+![image](https://github.com/user-attachments/assets/ad679726-194c-4551-85e9-233af1527427)
 
-We use the `vit_tiny_patch16_224` model architecture for this classification task.
 
-## Setup
+Testing:
+![image](https://github.com/user-attachments/assets/e1fa6543-4069-4fb4-a104-ddcd84781519)
 
-### Prerequisites
-- Python 3.7+
-- uv (for package management)
-- PyTorch
-- PyTorch Lightning
-- Hydra
-- DVC
 
-### Installation
+Dockerization:
+![image](https://github.com/user-attachments/assets/6b1475c2-fc89-42c5-8a68-beb5ba9db676)
 
-1. Clone the repository:
-   ```
-   git clone https://github.com/your-username/catdog-classification.git
-   cd catdog-classification
-   ```
 
-2. Install uv:
-   ```
-   pip install uv
-   ```
+Code cover:
+![image](https://github.com/user-attachments/assets/73a6d387-d9e5-4ea6-9ee6-1fa4536a1bd6)
 
-3. Create a virtual environment and install dependencies using uv:
-   ```
-   uv venv
-   source .venv/bin/activate  # On Windows, use: .venv\Scripts\activate
-   uv pip install -r requirements.txt
-   ```
 
-4. Set up DVC:
-   ```
-   dvc init
-   dvc remote add -d myremote /path/to/remote/storage
-   ```
-
-## Usage
-
-1. Prepare your dataset:
-   ```
-   dvc add data/
-   ```
-
-2. Train the model:
-   ```
-   python src/train.py
-   ```
-
-3. Evaluate the model:
-   ```
-   python src/eval.py
-   ```
+Predictions:
+![image](https://github.com/user-attachments/assets/811ff23a-b5e8-45df-8d75-da55205b041f)
+![image](https://github.com/user-attachments/assets/d61ca32e-54ef-499c-9e55-a1df96f9b695)
 
 
 
-### Hydra Configuration Structure
+added packge to GHRC:
+![Uploading image.png…]()
 
-```bash
-├── callbacks
-│   ├── default.yaml
-│   ├── early_stopping.yaml
-│   ├── model_checkpoint.yaml
-│   ├── model_summary.yaml
-│   └── rich_progress_bar.yaml
-├── data
-│   └── catdog.yaml
-├── eval.yaml
-├── experiment
-│   └── catdog_ex.yaml
-├── hydra
-│   └── default.yaml
-├── infer.yaml
-├── logger
-│   ├── csv.yaml
-│   ├── default.yaml
-│   └── tensorboard.yaml
-├── model
-│   └── timm_classify.yaml
-├── paths
-│   └── default.yaml
-├── train.yaml
-└── trainer
-    └── default.yaml
-```
 
-## Configuration
-
-This project uses Hydra for configuration management. The configuration files are organized in the structure shown above. Key configuration files include:
-
-- `experiment/catdog_ex.yaml`: Main experiment configuration
-- `model/timm_classify.yaml`: Model-specific configuration for the `vit_tiny_patch16_224`
-- `data/catdog.yaml`: Dataset configuration
-- `callbacks/`: Various callback configurations for training
-- `logger/`: Logging configurations
-- `trainer/default.yaml`: PyTorch Lightning Trainer configuration
-
-You can override configuration values using command-line arguments or by modifying the YAML files.
-
-## Data Version Control
-
-DVC is used to version the dataset and trained models. To pull the latest data:
-
-```
-dvc pull
-```
-<!--
-## Training Results
-
-![Training Results](path/to/training_results_image.png)
-
-*Figure: Training accuracy and loss over epochs*
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-## License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
--->

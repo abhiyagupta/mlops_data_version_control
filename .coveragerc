@@ -1,0 +1,13 @@
+[run]
+source = src
+
+[report]
+S
+
+show_missing = true
+
+
+
+--omit =--
+--  src/eval.py
+ --   src/infer.py

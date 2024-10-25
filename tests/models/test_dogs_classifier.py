@@ -3,13 +3,17 @@ import torch
 import rootutils
 
 # Setup root directory
+#root = rootutils.setup_root(__file__, indicator=".project-root", pythonpath=True)
+# Setup root directory
 root = rootutils.setup_root(__file__, indicator=".project-root", pythonpath=True)
 
-from src.models.timm_classifier import TimmClassifier
+
+#from src.models.timm_classifier import TimmClassifier
+from src.models.dogs_classifier import DogsBreedClassifier
 
 @pytest.fixture
 def model():
-    return TimmClassifier(num_classes=10)
+    return DogsBreedClassifier(num_classes=10)
 
 @pytest.fixture
 def sample_batch():

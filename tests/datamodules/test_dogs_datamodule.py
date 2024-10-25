@@ -3,14 +3,17 @@ from pathlib import Path
 import os
 
 # Setup root directory
-root = Path("/app")  # This matches the WORKDIR in the Dockerfile
+#root = Path("/app")  # This matches the WORKDIR in the Dockerfile
+# Setup root directory
+root = rootutils.setup_root(__file__, indicator=".project-root", pythonpath=True)
 
-from src.datamodules.dogbreed import DogImageDataModule
+
+from src.data_modules.dogs_datamodule import DogsBreedDataModule
 
 @pytest.fixture
 def datamodule():
     # Use the data_dir from catdog.yaml, but with the Docker path
-    data_dir = Path("/app/data/dogbreed")
+    data_dir = "./data/dogs_dataset"
     return DogImageDataModule(
         data_dir=str(data_dir),
         batch_size=32,
@@ -23,7 +26,7 @@ def datamodule():
 
 def test_dogbreed_datamodule_init(datamodule):
     assert isinstance(datamodule, DogImageDataModule)
-    assert str(datamodule.data_dir) == "/app/data/dogbreed"
+    assert str(datamodule.data_dir) == data_dir
     assert datamodule.batch_size == 32
     assert datamodule.num_workers == 0
     assert datamodule.train_split == 0.7

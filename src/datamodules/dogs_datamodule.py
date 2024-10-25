@@ -13,7 +13,7 @@ from torchvision.datasets import ImageFolder
 from torchvision.datasets.utils import download_and_extract_archive
 
 
-class CatDogDataModule(L.LightningModule):
+class DogsBreedDataModule(L.LightningModule):
     """
     A PyTorch Lightning DataModule for loading and preparing dog breed images
     for training, validation, and testing. This module manages the datasets
@@ -45,13 +45,25 @@ class CatDogDataModule(L.LightningModule):
         self._dataset = None
 
     def prepare_data(self):
-        dataset_path = self.data_dir 
-        if not dataset_path.exists():
+        """Download images and prepare datasets."""
+        dataset_dir = self._dl_path.joinpath("dataset")
+        log.info(f"Checking for dataset in: {dataset_dir}")
+        
+        print(f"Checking for dataset in: {dataset_dir}")
+
+        if not dataset_dir.exists():
+            log.info("Dataset not found. Downloading...")
             download_and_extract_archive(
-                url="https://drive.google.com/uc?export=download&id=1Bu3HQmZ6_XP-qnEuCVJ4Bg4641JuoPbx",
-                download_root=self.data_dir,
-                remove_finished=True,
+                url="https://raw.githubusercontent.com/abhiyagupta/Datasets/refs/heads/main/CNN_Datasets/dogs_classifier_dataset.zip",
+                download_root=self._dl_path,
+                remove_finished=True
             )
+        else:
+            log.info("Dataset already exists.")
+
+        # Check if the dataset has the expected structure
+        if not any(dataset_dir.glob("*/*.jpg")):
+            raise RuntimeError(f"No images found in {dataset_dir}. The dataset may be corrupted or have an unexpected structure.")
 
     def setup(self, stage: str):
         if self._dataset is None:

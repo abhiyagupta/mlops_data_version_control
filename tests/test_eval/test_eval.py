@@ -6,9 +6,13 @@ from omegaconf import OmegaConf
 import torch
 
 # Add the project root to the Python path
-sys.path.append(str(Path(__file__).parent.parent.parent))
+#sys.path.append(str(Path(__file__).parent.parent.parent))
+# Setup root directory
+root = rootutils.setup_root(__file__, indicator=".project-root", pythonpath=True)
+
 
 # Import main function from eval.py
+from  src.data_modules.dogs_datamodule import DogsBreedDataModule
 from src.eval import main
 
 @pytest.fixture

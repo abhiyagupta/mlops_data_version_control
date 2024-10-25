@@ -1,6 +1,5 @@
 _target_: src.datamodules.dogbreed.CatDogDataModule
-
-data_dir: ${oc.env:PROJECT_ROOT}/data/catdog  
+data_dir: ${paths.data_dir}/dogs_dataset
 num_workers: 4
 batch_size: 32
 train_split: 0.8

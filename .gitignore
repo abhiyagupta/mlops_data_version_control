@@ -5,5 +5,4 @@ test_metrics.md
 checkpoints/
 logs/
 requirements.txt
-.dvc
-data.dvc
+

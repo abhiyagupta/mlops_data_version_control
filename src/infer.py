@@ -20,8 +20,8 @@ log = logging.getLogger(__name__)
 
 # Define class labels
 CLASS_LABELS = [
-    "Cat",
-    "Dog",
+    'Beagle', 'Boxer', 'Bulldog', 'Dachshund', 'German_Shepherd', 'Golden_Retriever',
+    'Labrador_Retriever', 'Poodle','Rottweiler','Yorkshire_Terrier'
 ]
 
 

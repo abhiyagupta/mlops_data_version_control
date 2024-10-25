@@ -3,7 +3,7 @@ import timm
 import torch
 from torchmetrics import Accuracy, MaxMetric, MeanMetric
 
-class TimmClassifier(L.LightningModule):
+class DogsBreedClassifier(L.LightningModule):
     def __init__(
         self,
         base_model: str = "resnet18",
