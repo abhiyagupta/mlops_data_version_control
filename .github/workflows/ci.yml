@@ -6,8 +6,8 @@ name: Python CI/CD application
 on:
   workflow_dispatch:
   # push to main
-  push:
-    branches: [ "ci-pipeline" ]
+  # push:
+  #   branches: [ "main" ]
 
 permissions:
   contents: read
