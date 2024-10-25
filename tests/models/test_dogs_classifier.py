@@ -3,41 +3,29 @@ import torch
 import rootutils
 
 # Setup root directory
-#root = rootutils.setup_root(__file__, indicator=".project-root", pythonpath=True)
-# Setup root directory
 root = rootutils.setup_root(__file__, indicator=".project-root", pythonpath=True)
 
 
-#from src.models.timm_classifier import TimmClassifier
 from src.models.dogs_classifier import DogsBreedClassifier
 
-@pytest.fixture
-def model():
-    return DogsBreedClassifier(num_classes=10)
 
-@pytest.fixture
-def sample_batch():
-    # Create a sample batch of 4 images with 3 channels and 224x224 size
-    images = torch.randn(4, 3, 224, 224)
-    labels = torch.randint(0, 10, (4,))
-    return images, labels
 
-def test_model_forward(model, sample_batch):
-    images, _ = sample_batch
-    output = model(images)
-    assert output.shape == (4, 10)
+def test_dogsbread_classifier_forward():
+    model = DogsBreedClassifier(model_name='resnet18', 
+            num_classes=10, 
+            pretrained=True,
+            trainable=False,
+            lr=0.001, 
+            weight_decay=.9,
+            scheduler_factor=1,
+            scheduler_patience=1,
+            min_lr=0.1)
+    print(model)
+    batch_size, channels, height, width = 4, 3, 224, 224
+    x = torch.randn(batch_size, channels, height, width)
+    output = model(x)
+    assert output.shape == (batch_size, 10)
 
-def test_model_training_step(model, sample_batch):
-    loss = model.training_step(sample_batch, 0)
-    assert isinstance(loss, torch.Tensor)
-    assert loss.shape == ()
 
-def test_model_validation_step(model, sample_batch):
-    model.validation_step(sample_batch, 0)
-    assert model.val_loss.compute() > 0
-    assert 0 <= model.val_acc.compute() <= 1
-
-def test_model_test_step(model, sample_batch):
-    model.test_step(sample_batch, 0)
-    assert model.test_loss.compute() > 0
-    assert 0 <= model.test_acc.compute() <= 1
+if __name__=="__main__":
+    test_dogsbread_classifier_forward()

@@ -1,8 +1,5 @@
-_target_: src.datamodules.dogbreed.CatDogDataModule
+_target_: src.datamodules.dogs_datamodule.DogsBreedDataModule
 data_dir: ${paths.data_dir}/dogs_dataset
-num_workers: 4
 batch_size: 32
-train_split: 0.8
-val_split: 0.1
-test_split: 0.1
-pin_memory: True
+num_workers: 0 
+pin_memory: False

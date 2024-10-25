@@ -1,114 +1,89 @@
-import lightning as L
-import timm
+import lightning as pl 
+import timm 
 import torch
-from torchmetrics import Accuracy, MaxMetric, MeanMetric
+from torch import nn 
+from torch.nn import functional as F
+from torchmetrics import Accuracy
+from typing import Dict
 
-class DogsBreedClassifier(L.LightningModule):
+class DogsBreedClassifier(pl.LightningModule):
     def __init__(
-        self,
-        base_model: str = "resnet18",
-        num_classes: int = 10,
-        pretrained: bool = True,
-        lr: float = 1e-3,
-        optimizer: str = "Adam",
-        weight_decay: float = 1e-5,
-        betas: tuple = (0.9, 0.999),
-        eps: float = 1e-8,
-        scheduler_patience: int = 3,
-        scheduler_factor: float = 0.1,
-    ):
+            self, 
+            model_name:str, 
+            num_classes:int, 
+            pretrained:bool,
+            trainable:bool,
+            lr:float, 
+            weight_decay:float,
+            scheduler_factor:float,
+            scheduler_patience:int,
+            min_lr:float
+    ) -> None:
         super().__init__()
         self.save_hyperparameters()
 
-        # load pre-trained model
-        self.model = timm.create_model(base_model, pretrained=pretrained, num_classes=num_classes)
+        self.model:timm.models.resnest.ResNet = timm.create_model(model_name=self.hparams.model_name,pretrained=self.hparams.pretrained,num_classes=self.hparams.num_classes,global_pool = 'avg')
 
-        # loss function
-        self.criterion = torch.nn.CrossEntropyLoss()
+        # for p in self.model.parameters():
+        #     p.requires_grad=self.hparams.trainable
 
-        # metrics
-        self.train_acc = Accuracy(task="multiclass", num_classes=num_classes)
-        self.val_acc = Accuracy(task="multiclass", num_classes=num_classes)
-        self.test_acc = Accuracy(task="multiclass", num_classes=num_classes)
 
-        self.train_loss = MeanMetric()
-        self.val_loss = MeanMetric()
-        self.test_loss = MeanMetric()
+        self.train_acc:Accuracy = Accuracy(task='multiclass',num_classes=self.hparams.num_classes)
+        self.test_acc :Accuracy = Accuracy(task='multiclass',num_classes=self.hparams.num_classes)
+        self.valid_acc:Accuracy = Accuracy(task='multiclass',num_classes=self.hparams.num_classes)
 
-        self.val_acc_best = MaxMetric()
 
-    def forward(self, x):
+    def forward(self, x:torch.Tensor) -> torch.Any:
         return self.model(x)
-
-    def on_train_start(self) -> None:
-        self.val_loss.reset()
-        self.val_acc.reset()
-        self.val_acc_best.reset()
-
-    def model_step(self, batch):
-        x, y = batch
+    
+    def training_step(self, batch,batch_idx) -> torch.Tensor:
+        x,y = batch 
         logits = self(x)
-        loss = self.criterion(logits, y)
-        preds = torch.argmax(logits, dim=1)
-        return loss, preds, y
+        loss   = F.cross_entropy(logits,y)
+        preds  = F.softmax(logits,dim=-1)
+        self.train_acc(preds,y)
+        self.log("train/loss",loss,prog_bar=True,on_epoch=True,on_step=True)
+        self.log("train/acc",self.train_acc,prog_bar=True,on_epoch=True,on_step=True)
+        return loss 
 
-    def training_step(self, batch, batch_idx):
-        loss, preds, targets = self.model_step(batch=batch)
+    
+    def validation_step(self, batch,batch_idx) -> torch.Tensor:
+        x,y = batch 
+        logits = self(x)
+        loss   = F.cross_entropy(logits,y)
+        preds  = F.softmax(logits,dim=-1)
+        self.valid_acc(preds,y)
+        self.log("val/loss",loss,prog_bar=True,on_epoch=True,on_step=True)
+        self.log("val/acc",self.valid_acc,prog_bar=True,on_epoch=True,on_step=True)
+        return loss 
+    
 
-        self.train_loss(loss)
-        self.train_acc(preds, targets)
-        self.log("train/loss", self.train_loss, on_step=False, on_epoch=True, prog_bar=True)
-        self.log("train/acc", self.train_acc, on_step=False, on_epoch=True, prog_bar=True)
+    def test_step(self,batch,batch_idx ) -> torch.Tensor:
+        x,y = batch 
+        logits = self(x)
+        loss   = F.cross_entropy(logits,y)
+        preds  = F.softmax(logits,dim=-1)
+        self.test_acc(preds,y)
+        self.log("test/loss",loss,prog_bar=True,on_epoch=True,on_step=True)
+        self.log("test/acc",self.test_acc,prog_bar=True,on_epoch=True,on_step=True)
+        return loss 
 
-        return loss
-
-    def validation_step(self, batch, batch_idx):
-        loss, preds, targets = self.model_step(batch=batch)
-        self.val_loss(loss)
-        self.val_acc(preds, targets)
-
-        self.log("val/loss", self.val_loss, on_step=False, on_epoch=True, prog_bar=True)
-
-        self.log("val/acc", self.val_acc, on_step=False, on_epoch=True, prog_bar=True)
-
-    def on_validation_epoch_end(self):
-        acc = self.val_acc.compute()
-        self.val_acc_best(acc)
-
-        self.log(
-            "val/acc_best",
-            self.val_acc_best.compute(),
-            on_step=False,
-            on_epoch=True,
-            prog_bar=True,
-        )
-
-    def test_step(self, batch, batch_idx):
-        loss, preds, targets = self.model_step(batch=batch)
-        self.test_loss(loss)
-        self.test_acc(preds, targets)
-        self.log("test/loss", self.test_loss, on_step=False, on_epoch=True, prog_bar=True)
-        self.log("test/acc", self.test_acc, on_step=False, on_epoch=True, prog_bar=True)
-
-    def configure_optimizers(self):
-        optimizer_class = getattr(torch.optim, self.hparams.optimizer)
-        optimizer = optimizer_class(
-            self.parameters(),
-            lr=self.hparams.lr,
-            weight_decay=self.hparams.weight_decay,
-            betas=self.hparams.betas,
-            eps=self.hparams.eps
-        )
-        
-        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-            optimizer,
-            mode="min",
-            factor=self.hparams.scheduler_factor,
-            patience=self.hparams.scheduler_patience,
-            verbose=True,
-        )
-
+    def configure_optimizers(self) -> Dict:
+        optimizer = torch.optim.Adam(
+                                    self.parameters(),
+                                    lr=self.hparams.lr,
+                                    weight_decay=self.hparams.weight_decay
+                    )
+        # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+        #                 optimizer=optimizer,
+        #                 factor=self.hparams.scheduler_factor,
+        #                 patience=self.hparams.scheduler_patience,
+        #                 min_lr=self.hparams.min_lr
+        # )
+        scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer=optimizer,total_steps=self.trainer.estimated_stepping_batches,max_lr=self.hparams.lr*10)
         return {
-            "optimizer": optimizer,
-            "lr_scheduler": {"scheduler": scheduler, "monitor": "val/loss"},
+            "optimizer":optimizer,
+            "lr_scheduler":scheduler,
+            "monitor":"train/loss_epoch"
         }
+    

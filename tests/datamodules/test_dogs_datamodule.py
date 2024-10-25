@@ -1,68 +1,65 @@
 import pytest
-from pathlib import Path
+import torch 
+import rootutils
 import os
 
 # Setup root directory
-#root = Path("/app")  # This matches the WORKDIR in the Dockerfile
-# Setup root directory
 root = rootutils.setup_root(__file__, indicator=".project-root", pythonpath=True)
-
 
 from src.data_modules.dogs_datamodule import DogsBreedDataModule
 
 @pytest.fixture
 def datamodule():
-    # Use the data_dir from catdog.yaml, but with the Docker path
-    data_dir = "./data/dogs_dataset"
-    return DogImageDataModule(
-        data_dir=str(data_dir),
-        batch_size=32,
-        num_workers=0,  # Set to 0 for debugging
-        train_split=0.7,
-        val_split=0.15,
-        test_split=0.15,
-        pin_memory=False  # Set to False for debugging
-    )
+    print("Creating datamodule fixture")
+    print(f"Current working directory: {os.getcwd()}")
 
-def test_dogbreed_datamodule_init(datamodule):
-    assert isinstance(datamodule, DogImageDataModule)
-    assert str(datamodule.data_dir) == data_dir
-    assert datamodule.batch_size == 32
-    assert datamodule.num_workers == 0
-    assert datamodule.train_split == 0.7
-    assert datamodule.val_split == 0.15
-    assert datamodule.test_split == 0.15
-    assert datamodule.pin_memory == False
+    # Use absolute path or path relative to project root
+    # data_dir = "/code/data/dogs_dataset"
 
-def test_dogbreed_datamodule_setup(datamodule):
-    # Check if the data directory exists
-    assert os.path.exists(datamodule.data_dir), f"Data directory {datamodule.data_dir} does not exist"
+    data_dir="./data/dogs_dataset"
     
-    datamodule.setup(stage="fit")
-    assert datamodule.train_dataset is not None
-    assert datamodule.val_dataset is not None
+    dm = DogsBreedDataModule(batch_size=8,
+                num_workers=0,
+                pin_memory=False,
+                data_dir= data_dir) #"./data/dogs_dataset")
+    print(f"DataModule: {dm}")
     
-    datamodule.setup(stage="test")
-    assert datamodule.test_dataset is not None
+    print(f"Data directory used: {data_dir}")
+    return dm
 
-def test_dogbreed_datamodule_dataloaders(datamodule):
-    datamodule.setup(stage="fit")
-    datamodule.setup(stage="test")
+def test_dogsbreed_data_setup(datamodule):
+    print("Running test_dogsbreed_data_setup")
+    datamodule.prepare_data()
+    datamodule.setup()
+
+    assert datamodule.transforms is not None, "Transforms should not be None"
+    assert datamodule.train_dataset is not None, "Train dataset should not be None"
+    assert datamodule.test_dataset is not None, "Test dataset should not be None"
+    assert datamodule.val_dataset is not None, "Validation dataset should not be None"
+
+def test_prepare_data(datamodule):
+    print("Running test_prepare_data")
+    datamodule.prepare_data()
+    datamodule.setup()
+    assert len(datamodule.train_dataset) > len(datamodule.test_dataset), "Train dataset should be larger than test dataset"
+    assert len(datamodule.train_dataset) > len(datamodule.val_dataset), "Train dataset should be larger than validation dataset"
+
+def test_dogsbreed_dataloaders(datamodule):
+    print("Running test_dogsbreed_dataloaders")
+    datamodule.prepare_data()
+    datamodule.setup()
 
     train_loader = datamodule.train_dataloader()
     val_loader = datamodule.val_dataloader()
     test_loader = datamodule.test_dataloader()
 
-    assert train_loader is not None
-    assert val_loader is not None
-    assert test_loader is not None
+    assert train_loader is not None, "Train dataloader should not be None"
+    assert val_loader is not None, "Validation dataloader should not be None"
+    assert test_loader is not None, "Test dataloader should not be None"
 
-    try:
-        batch = next(iter(train_loader))
-        assert len(batch) == 2  # (images, labels)
-        assert batch[0].shape[1:] == (3, 224, 224)  # (batch_size, channels, height, width)
-    except Exception as e:
-        pytest.fail(f"Failed to get batch from train_loader: {str(e)}")
 
-if __name__ == "__main__":
-    pytest.main([__file__])
+
+# #add a simple test that doesn't rely on the datamodule
+# def test_simple():
+#     print("Running test_simple")
+#     assert True

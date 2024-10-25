@@ -1,0 +1,19 @@
+[2024-10-25 13:09:10,838][__main__][INFO] - Instantiating datamodule <src.datamodules.dogs_datamodule.DogsBreedDataModule>
+[2024-10-25 13:09:12,084][__main__][INFO] - Instantiating model <src.models.dogs_classifier.DogsBreedClassifier>
+[2024-10-25 13:09:12,805][timm.models._builder][INFO] - Loading pretrained weights from Hugging Face hub (timm/resnet18.a1_in1k)
+[2024-10-25 13:09:13,817][timm.models._hub][INFO] - [timm/resnet18.a1_in1k] Safe alternative available for 'pytorch_model.bin' (as 'model.safetensors'). Loading weights using safetensors.
+[2024-10-25 13:09:13,924][timm.models._builder][INFO] - Missing keys (fc.weight, fc.bias) discovered while loading pretrained weights. This is expected if model is being adapted.
+[2024-10-25 13:09:14,012][__main__][INFO] - Instantiating callback <lightning.pytorch.callbacks.ModelCheckpoint>
+[2024-10-25 13:09:14,016][__main__][INFO] - Instantiating callback <lightning.pytorch.callbacks.EarlyStopping>
+[2024-10-25 13:09:14,018][__main__][INFO] - Instantiating callback <lightning.pytorch.callbacks.RichModelSummary>
+[2024-10-25 13:09:14,019][__main__][INFO] - Instantiating callback <lightning.pytorch.callbacks.RichProgressBar>
+[2024-10-25 13:09:14,020][__main__][INFO] - Instantiating logger <lightning.pytorch.loggers.csv_logs.CSVLogger>
+[2024-10-25 13:09:14,022][__main__][INFO] - Instantiating logger <lightning.pytorch.loggers.tensorboard.TensorBoardLogger>
+[2024-10-25 13:09:14,027][__main__][INFO] - Instantiating trainer <lightning.Trainer>
+[2024-10-25 13:09:14,064][pytorch_lightning.utilities.rank_zero][INFO] - Trainer already configured with model summary callbacks: [<class 'lightning.pytorch.callbacks.rich_model_summary.RichModelSummary'>]. Skipping setting a default `ModelSummary` callback.
+[2024-10-25 13:09:14,118][pytorch_lightning.utilities.rank_zero][INFO] - GPU available: False, used: False
+[2024-10-25 13:09:14,118][pytorch_lightning.utilities.rank_zero][INFO] - TPU available: False, using: 0 TPU cores
+[2024-10-25 13:09:14,118][pytorch_lightning.utilities.rank_zero][INFO] - HPU available: False, using: 0 HPUs
+[2024-10-25 13:09:14,119][__main__][INFO] - Starting evaluation!
+[2024-10-25 13:09:14,119][src.datamodules.dogs_datamodule][INFO] - Checking for dataset in: /code/data/dogs_dataset/dataset
+[2024-10-25 13:09:14,119][src.datamodules.dogs_datamodule][INFO] - Dataset already exists.

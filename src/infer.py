@@ -1,149 +1,278 @@
-import random
-from typing import Tuple
+
+import argparse
 from pathlib import Path
-import logging
-import hydra
-from omegaconf import DictConfig
-import pytorch_lightning as pl
+
 import torch
 import torch.nn.functional as F
 import matplotlib.pyplot as plt
+import lightning as L
+from PIL import Image
+from torchvision import transforms
+import hydra
+from omegaconf import DictConfig, OmegaConf
+import logging
+import random
 
+from models.dogs_classifier import DogsBreedClassifier
+from utils.logging_utils import setup_logger, task_wrapper, get_rich_progress
+from rich.console import Console
 import rootutils
-rootutils.setup_root(__file__, indicator=".project-root", pythonpath=True)
+import os
+import glob
 
-# Imports that require root directory setup
-from src.utils.logging_utils import setup_logger, task_wrapper
+# Setup root directory
+root = rootutils.setup_root(__file__, indicator=".project-root", pythonpath=True)
 
 log = logging.getLogger(__name__)
 
 
-# Define class labels
-CLASS_LABELS = [
-    'Beagle', 'Boxer', 'Bulldog', 'Dachshund', 'German_Shepherd', 'Golden_Retriever',
-    'Labrador_Retriever', 'Poodle','Rottweiler','Yorkshire_Terrier'
-]
-
-
-def denormalize(tensor, mean, std):
-    # Ensure tensor is on CPU and in the correct shape (C, H, W)
-    tensor = tensor.cpu()
-    if tensor.dim() == 2:
-        tensor = tensor.unsqueeze(0)
-    elif tensor.dim() == 3 and tensor.shape[0] != 3:
-        tensor = tensor.permute(2, 0, 1)
-
-    # Reshape mean and std to (C, 1, 1) for broadcasting
-    mean = torch.tensor(mean, dtype=tensor.dtype).view(-1, 1, 1)
-    std = torch.tensor(std, dtype=tensor.dtype).view(-1, 1, 1)
-
-    # Apply denormalization
-    return (tensor * std + mean).clamp(0, 1)
-
-
-def inference(model: pl.LightningModule, img: torch.Tensor) -> Tuple[str, float]:
-    """
-    Perform inference on a given image using a trained model.
-
-    Args:
-        model (pl.LightningModule): Trained PyTorch Lightning model.
-        img (torch.Tensor): Input image tensor.
-
-    Returns:
-        Tuple[str, float]: predicted label, and confidence.
-    """
-
-    # Set the model in evaluation mode
-    model.eval()
-
-    # Perform inference
-    with torch.no_grad():
-        output = model(img)
-        probability = F.softmax(output, dim=1)
-        predicted = torch.argmax(probability, dim=1).item()
-
-    predicted_label = CLASS_LABELS[predicted]
-    confidence = probability[0][predicted].item()
-
-    return predicted_label, confidence
-
-
-def save_prediction(
-    img: torch.Tensor,
-    actual_label: str,
-    predicted_label: str,
-    confidence: float,
-    output_path: str,
-):
-    """
-    Save an image with actual and predicted labels, along with confidence.
-
-    Args:
-        img (torch.Tensor): The image tensor to be displayed and saved.
-        actual_label (str): The ground truth label of the image.
-        predicted_label (str): The label predicted by the model.
-        confidence (float): The confidence score of the prediction.
-        output_path (str): The path where the image with annotations will be saved.
-    """
-
-    # Denormalize the image
-    img = denormalize(img, mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-
-    # Convert the tensor to numpy array
-    # From (C, H, W) to (H, W, C)
-    img = img.permute(1, 2, 0).numpy()
-
-    plt.figure(figsize=(9, 9))
-    plt.imshow(img)
-    plt.axis("off")
-    plt.title(
-        f"Actual: {actual_label} | Predicted: {predicted_label} | (Confidence: {confidence:.2f})"
+@task_wrapper
+def load_image(image_path):
+    img = Image.open(image_path).convert("RGB")
+    transform = transforms.Compose(
+        [
+            transforms.Resize((224, 224)),
+            transforms.ToTensor(),
+            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+        ]
     )
-    plt.savefig(output_path)
+    return img, transform(img).unsqueeze(0)
+
+
+@task_wrapper
+def infer(model,image_tensor):
+    class_labels= ['Beagle', 'Boxer', 'Bulldog', 'Dachshund', 'German_Shepherd', 'Golden_Retriever','Labrador_Retriever', 'Poodle','Rottweiler','Yorkshire_Terrier']
+    model.eval()
+    with torch.no_grad():
+        logits = model(image_tensor) 
+        probabilities = F.softmax(logits,dim=-1)
+        y_pred = probabilities.argmax(dim=-1).item()
+
+    confidence = probabilities[0][y_pred].item()
+    predicted_label = class_labels[y_pred]
+    return predicted_label,confidence
+
+def instantiate_callbacks(callback_cfg):
+    callbacks = []
+    if callback_cfg:
+        for _, cb_conf in callback_cfg.items():
+            if "_target_" in cb_conf:
+                callbacks.append(hydra.utils.instantiate(cb_conf))
+    return callbacks
+
+def instantiate_loggers(logger_cfg):
+    loggers = []
+    if logger_cfg:
+        for _, lg_conf in logger_cfg.items():
+            if "_target_" in lg_conf:
+                loggers.append(hydra.utils.instantiate(lg_conf))
+    return loggers
+
+@task_wrapper
+def evaluate(trainer, model, datamodule, ckpt_path):
+    if ckpt_path:
+        # Use the test_dataloader from the datamodule
+        test_dataloader = datamodule.test_dataloader()
+        trainer.test(model, test_dataloader, ckpt_path=ckpt_path)
+    else:
+        logging.error("No checkpoint path provided. Cannot evaluate the model.")
+        return
+    logging.info(f"Evaluation metrics: {trainer.callback_metrics}")
+
+
+
+
+@task_wrapper
+def save_and_display_prediction_image(image, predicted_label, confidence, output_path):
+    plt.figure(figsize=(5, 5))
+    plt.imshow(image)
+    plt.axis("off")
+    plt.title(f"Predicted: {predicted_label} (Confidence: {confidence:.2f})")
+    plt.tight_layout()
+    
+    # Save the image to the output path
+    plt.savefig(output_path, dpi=300, bbox_inches="tight")
+    
+    # Display the image in the terminal
+    plt.show()  # Add this line to display the image inline
     plt.close()
 
 
-@hydra.main(version_base="1.3", config_path="../configs", config_name="infer")
-def main(cfg: DictConfig) -> None:
-    """Main function for inference using Hydra configuration."""
-    
-    log.info(f"Instantiating model <{cfg.model._target_}>")
-    model = hydra.utils.instantiate(cfg.model)
-    
-    log.info(f"Loading model from checkpoint: {cfg.ckpt_path}")
-    # Change this line
-    model = type(model).load_from_checkpoint(cfg.ckpt_path)
-    # model.to(cfg.trainer.accelerator)
-    
-    log.info(f"Instantiating datamodule <{cfg.data._target_}>")
-    datamodule: pl.LightningDataModule = hydra.utils.instantiate(cfg.data)
-    
-    # Set up the data module for validation data
-    datamodule.setup(stage="test")
-    test_dataset = datamodule.test_dataset
-    
-    # Create output directory
-    output_folder = Path(cfg.paths.root_dir) / "predictions"
-    output_folder.mkdir(exist_ok=True)
-    
-    # Get the indices for sampling
-    num_samples = min(cfg.num_samples, len(test_dataset))
-    sampled_indices = random.sample(range(len(test_dataset)), num_samples)
-    
-    for idx in sampled_indices:
-        img, label_index = test_dataset[idx]
-        img_tensor = img.unsqueeze(0).to(model.device)
-        
-        actual_label = CLASS_LABELS[label_index]
+def get_latest_checkpoint(base_dir):
+    base_dir = Path(base_dir)
+    print(f"Looking for checkpoints starting from directory: {base_dir}")
 
-        predicted_label, confidence = inference(model, img_tensor)
-        print(actual_label, predicted_label)
+    # Start from the base_dir and search upwards until we find a checkpoint
+    current_dir = base_dir
+    while current_dir != current_dir.parent:  # Stop when we reach the root directory
+        checkpoint_pattern = str(current_dir / "**" / "checkpoints" / "*.ckpt")
+        print(f"Searching with pattern: {checkpoint_pattern}")
         
-        output_image_path = output_folder / f"sample_{idx}_prediction.png"
+        checkpoint_files = glob.glob(checkpoint_pattern, recursive=True)
+        if checkpoint_files:
+            print(f"Checkpoint files found: {checkpoint_files}")
+            return max(checkpoint_files, key=os.path.getctime)
         
-        save_prediction(img, actual_label, predicted_label, confidence, str(output_image_path))
-        
-    log.info(f"Predictions saved in {output_folder}")
+        current_dir = current_dir.parent
+
+    raise FileNotFoundError(f"No checkpoints found in or above {base_dir}")
+
+
+
+@hydra.main(version_base=None, config_path="../configs", config_name="infer")
+def main(cfg: DictConfig):
+    # Set up paths
+    log_dir = Path(cfg.paths.log_dir)
+    setup_logger(log_dir / "infer_log.log")
+
+    base_dir = cfg.paths.output_dir
+    ckpt_path = get_latest_checkpoint(base_dir)
+    log.info(f"Using checkpoint: {ckpt_path}")
+
+    # Load the model
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model = DogsBreedClassifier.load_from_checkpoint(ckpt_path, map_location=device)
+    model.to(device)
+    model.eval()
+
+    input_folder = Path(cfg.input_path)
+    output_folder = Path(cfg.output_path)
+    output_folder.mkdir(exist_ok=True, parents=True)
+
+    print(f"input_folder: {input_folder}")
+    print(f"output_folder: {output_folder}")
+
+    # Get all image files from the validation folder
+    image_files = list(input_folder.glob("**/*.jpg")) + list(input_folder.glob("**/*.png"))
+    
+    # Randomly select 5 images (or less if there are fewer than 5 images)
+    selected_images = random.sample(image_files, min(cfg.num_images, len(image_files)))
+    print (len(selected_images))
+    console = Console()
+    with get_rich_progress() as progress:
+        task = progress.add_task("[green]Processing images...", total=len(selected_images))
+
+        for image_file in selected_images:
+            img, img_tensor = load_image(image_file)
+            predicted_label, confidence = infer(model, img_tensor.to(device))
+
+            output_file = output_folder / f"{image_file.stem}_prediction.png"
+            save_and_display_prediction_image(img, predicted_label, confidence, output_file)
+            print(f"Processed {image_file.name}: {predicted_label} ({confidence:.2f})")
+            log.info(f"Processed {image_file.name}: {predicted_label} ({confidence:.2f})")
+            progress.advance(task) 
+    log.info(f"Predictions saved to: {output_folder}")
 
 if __name__ == "__main__":
     main()
+
+
+# =====================================================================
+
+
+# import argparse
+# from pathlib import Path
+# import lightning as L
+# import torch
+# import torch.nn.functional as F
+# import matplotlib.pyplot as plt
+# from PIL import Image
+# from torchvision import transforms
+
+# from models.dogs_classifier import DogsBreedClassifier
+# from utils.logging_utils import setup_logger, task_wrapper, get_rich_progress
+
+
+# @task_wrapper
+# def load_image(image_path):
+#     img = Image.open(image_path).convert("RGB")
+#     transform = transforms.Compose(
+#         [
+#             transforms.Resize((224, 224)),
+#             transforms.ToTensor(),
+#             transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+#         ]
+#     )
+#     return img, transform(img).unsqueeze(0)
+
+
+# @task_wrapper
+# def infer(model,image_tensor):
+#     class_labels= ['Beagle', 'Boxer', 'Bulldog', 'Dachshund', 'German_Shepherd', 'Golden_Retriever','Labrador_Retriever', 'Poodle','Rottweiler','Yorkshire_Terrier']
+#     model.eval()
+#     with torch.no_grad():
+#         logits = model(image_tensor) 
+#         probabilities = F.softmax(logits,dim=-1)
+#         y_pred = probabilities.argmax(dim=-1).item()
+
+#     confidence = probabilities[0][y_pred].item()
+#     predicted_label = class_labels[y_pred]
+#     return predicted_label,confidence
+
+
+
+
+# @task_wrapper
+# def save_prediction_image(image, predicted_label, confidence, output_path):
+#     plt.figure(figsize=(10, 6))
+#     plt.imshow(image)
+#     plt.axis("off")
+#     plt.title(f"Predicted: {predicted_label} (Confidence: {confidence:.2f})")
+#     plt.tight_layout()
+#     plt.savefig(output_path, dpi=300, bbox_inches="tight")
+#     plt.close()
+
+
+
+# @task_wrapper
+# def main(args):
+#     model = DogsBreedClassifier.load_from_checkpoint(args.ckpt_path)
+#     model.eval()
+
+#     input_folder = Path(args.input_folder)
+#     output_folder = Path(args.output_folder)
+#     output_folder.mkdir(exist_ok=True, parents=True)
+
+#     image_files = list(input_folder.glob("*"))
+#     with get_rich_progress() as progress:
+#         task = progress.add_task("[green]Processing images...", total=len(image_files))
+
+#         for image_file in image_files:
+#             if image_file.suffix.lower() in [".jpg", ".jpeg", ".png"]:
+#                 img, img_tensor = load_image(image_file)
+#                 predicted_label, confidence = infer(model, img_tensor.to(model.device))
+
+#                 output_file = output_folder / f"{image_file.stem}_prediction.png"
+            
+#                 save_prediction_image(img, predicted_label, confidence, output_file)
+
+#                 progress.console.print(
+#                     f"Processed {image_file.name}: {predicted_label} ({confidence:.2f})"
+#                 )
+#                 progress.advance(task)
+
+# if __name__ == "__main__":
+#     parser = argparse.ArgumentParser(
+#         description="Infer using trained CatDog Classifier"
+#     )
+#     parser.add_argument(
+#         "--input_folder",
+#         type=str,
+#         required=True,
+#         help="Path to input folder containing images",
+#     )
+#     parser.add_argument(
+#         "--output_folder",
+#         type=str,
+#         required=True,
+#         help="Path to output folder for predictions",
+#     )
+#     parser.add_argument(
+#         "--ckpt_path", type=str, required=True, help="Path to model checkpoint"
+#     )
+#     args = parser.parse_args()
+
+#     log_dir = Path(__file__).resolve().parent.parent / "logs"
+#     setup_logger(log_dir / "infer_log.log")
+
+#     main(args)
