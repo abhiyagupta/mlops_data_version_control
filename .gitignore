@@ -1,0 +1,9 @@
+/data
+train_acc.png
+train_loss.png
+test_metrics.md
+checkpoints/
+logs/
+requirements.txt
+.dvc
+data.dvc
