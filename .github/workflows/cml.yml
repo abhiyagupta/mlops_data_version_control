@@ -3,9 +3,9 @@ name: Train and Report
 on:
   workflow_dispatch:
   # push:
-  #   branches: [ master ]
+  #   branches: [ main ]
   pull_request:
-    branches: [ master ]
+    branches: [ main ]
 
 jobs:
   train-and-report:
